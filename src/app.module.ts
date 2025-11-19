@@ -1,8 +1,8 @@
-// src/app.module.ts (orders-service)
+// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ClientsModule, Transport } from '@nestjs/microservices'; // ✅ Use ClientsModule
+import { ClientsModule, Transport } from '@nestjs/microservices';
 import { OrderModule } from './order/order.module';
 
 @Module({
@@ -22,7 +22,6 @@ import { OrderModule } from './order/order.module';
         synchronize: true, 
       }),
     }),
-    // ✅ FIX: Use ClientsModule.registerAsync() instead of manual factory
     ClientsModule.registerAsync([
       {
         name: 'USER_SERVICE',
@@ -52,6 +51,6 @@ import { OrderModule } from './order/order.module';
     OrderModule,
   ],
   controllers: [],
-  providers: [], // ✅ Remove manual client providers - ClientsModule handles this
+  providers: [],
 })
 export class AppModule {}
