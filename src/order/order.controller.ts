@@ -1,62 +1,89 @@
-// // src/order/order.controller.ts
-// import { Controller, Post, Body, Get, Param, ParseIntPipe, HttpStatus } from '@nestjs/common';
-// import { OrderService } from './order.service';
-// import { CreateOrderDto } from './dto/create-order.dto';
-
-// @Controller('orders')
-// export class OrderController {
-//   constructor(private readonly orderService: OrderService) {}
-
-//   // POST /orders (Create a new order)
-//   @Post()
-//   async create(@Body() createOrderDto: CreateOrderDto) {
-//     // The service handles all validation and orchestration
-//     return this.orderService.createOrder(createOrderDto);
-//   }
-
-//   // GET /orders/:userId (List all orders for a user)
-//   // NOTE: In production, the userId must come from the JWT payload.
-//   @Get('user/:userId')
-//   async findAll(@Param('userId', ParseIntPipe) userId: number) {
-//     return this.orderService.findOrdersByUserId(userId);
-//   }
-  
-//   // GET /orders/:id (View a specific order)
-//   @Get(':id')
-//   async findOne(@Param('id', ParseIntPipe) id: number) {
-//     return this.orderService.findOrderById(id);
-//   }
-// }
-
 
 // src/order/order.controller.ts
-import { Controller, Post, Body, Get, Param, ParseIntPipe, Query, Patch, Delete } from '@nestjs/common';
+import { 
+  Controller, 
+  Post, 
+  Body, 
+  Get, 
+  Param, 
+  ParseIntPipe, 
+  Query, 
+  Patch, 
+  Delete 
+} from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './entities/order.entity';
 
-// ✅ REGULAR ORDERS CONTROLLER
+// ✅ REGULAR ORDERS CONTROLLER (Customer + Admin GET ALL)
 @Controller('orders')
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
+  // ✅ NEW: GET ALL ORDERS (This fixes your issue!)
+  // MUST BE BEFORE /orders/:id to avoid route conflicts
+  @Get()
+  async getAllOrders(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+  ) {
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    console.log('📊 GET /orders - Fetching all orders. Page:', pageNum, 'Limit:', limitNum);
+
+    const allOrders = await this.orderService.findAll();
+    const total = allOrders.length;
+    const paginatedOrders = allOrders.slice(skip, skip + limitNum);
+
+    console.log(`✅ Found ${paginatedOrders.length} orders out of ${total} total`);
+
+    return {
+      data: paginatedOrders,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+    };
+  }
+
+  // POST /orders - Create new order
   @Post()
   async create(@Body() createOrderDto: CreateOrderDto) {
     return this.orderService.createOrder(createOrderDto);
   }
 
+  // GET /orders/user/:userId - Get orders for specific user
   @Get('user/:userId')
-  async findAll(@Param('userId', ParseIntPipe) userId: number) {
-    return this.orderService.findOrdersByUserId(userId);
+  async findUserOrders(@Param('userId', ParseIntPipe) userId: number) {
+    console.log(`📦 GET /orders/user/${userId} - Fetching user orders`);
+    const orders = await this.orderService.findOrdersByUserId(userId);
+    console.log(`✅ Found ${orders.length} orders for user ${userId}`);
+    return orders;
   }
 
+  // GET /orders/:id - Get single order by ID
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
+    console.log(`📦 GET /orders/${id} - Fetching single order`);
     return this.orderService.findOrderById(id);
+  }
+
+  // PATCH /orders/:id/cancel - Cancel order
+  @Patch(':id/cancel')
+  async cancelOrder(@Param('id', ParseIntPipe) id: number) {
+    console.log(`❌ PATCH /orders/${id}/cancel - Cancelling order`);
+    const order = await this.orderService.updateOrderStatus(id, OrderStatus.CANCELLED);
+    return {
+      success: true,
+      message: 'Order cancelled successfully',
+      data: order,
+    };
   }
 }
 
-// ✅ SEPARATE ADMIN ORDERS CONTROLLER
+// ✅ SEPARATE ADMIN ORDERS CONTROLLER (Keep as is)
 @Controller('admin/orders')
 export class AdminOrderController {
   constructor(private readonly orderService: OrderService) {}
